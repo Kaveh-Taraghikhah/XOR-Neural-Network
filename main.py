@@ -1,78 +1,35 @@
 import numpy as np
 
-class Neuron:
-    def __init__(self, num_inputs):
-        self.weights = np.random.uniform(-1, 1, size=num_inputs)
-        self.bias = np.random.uniform(-1, 1)
+X = np.array([[0,0], [0,1], [1,0], [1,1]])
+y = np.array([[0], [1], [1], [0]])
 
-    def activate(self, inputs):
-        self.inputs = inputs
-        z = np.dot(inputs, self.weights) + self.bias
-        self.output = 1 / (1 + np.exp(-z))
-        return self.output
+np.random.seed(1)
 
-    def sigmoid_derivative(self):
-        return self.output * (1 - self.output)
+W1 = np.random.uniform(-1, 1, (2, 2))
+b1 = np.zeros((1, 2))
+W2 = np.random.uniform(-1, 1, (2, 1))
+b2 = np.zeros((1, 1))
 
-    def update_weights(self, delta, lr):
-        self.weights += lr * delta * self.inputs
-        self.bias += lr * delta
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
-class Layer:
-    def __init__(self, num_neurons, num_inputs_per_neuron):
-        self.neurons = [Neuron(num_inputs_per_neuron) for _ in range(num_neurons)]
+def sigmoid_deriv(x):
+    return x * (1 - x)
 
-    def forward(self, inputs):
-        return np.array([neuron.activate(inputs) for neuron in self.neurons])
+lr = 0.3
+epochs = 30000
 
-    def backward(self, errors, lr):
-        deltas = []
-        for i, neuron in enumerate(self.neurons):
-            delta = errors[i] * neuron.sigmoid_derivative()
-            neuron.update_weights(delta, lr)
-            deltas.append(delta)
-        return np.dot(np.array([n.weights for n in self.neurons]).T, deltas)
+for _ in range(epochs):
+    h = sigmoid(X @ W1 + b1)
+    y_hat = sigmoid(h @ W2 + b2)
 
-class NeuralNetwork:
-    def __init__(self, layer_sizes, lr=0.1, epochs=10000):
-        self.lr = lr
-        self.epochs = epochs
-        self.layers = []
-        for i in range(len(layer_sizes)-1):
-            self.layers.append(Layer(layer_sizes[i+1], layer_sizes[i]))
+    error = y - y_hat
+    d_out = error * sigmoid_deriv(y_hat)
+    d_hidden = d_out @ W2.T * sigmoid_deriv(h)
 
-    def train(self, inputs, targets):
-        for epoch in range(self.epochs):
-            total_error = 0
-            for x, y in zip(inputs, targets):
-                activations = [x]
-                for layer in self.layers:
-                    activations.append(layer.forward(activations[-1]))
+    W2 += lr * h.T @ d_out
+    b2 += lr * d_out.sum(axis=0)
+    W1 += lr * X.T @ d_hidden
+    b1 += lr * d_hidden.sum(axis=0)
 
-                output_error = y - activations[-1]
-                total_error += np.sum(output_error ** 2)
-
-                error = output_error
-                for layer in reversed(self.layers):
-                    error = layer.backward(error, self.lr)
-
-            if epoch % 1000 == 0:
-                avg_error = total_error / len(inputs)
-                print(f"Epoch {epoch}, MSE: {avg_error}")
-
-    def predict(self, x):
-        activation = x
-        for layer in self.layers:
-            activation = layer.forward(activation)
-        return activation
-
-inputs = np.array([[0,0], [0,1], [1,0], [1,1]])
-outputs = np.array([[0],   [1],   [1],   [0]])
-
-nn = NeuralNetwork([2, 2, 1], lr=0.1, epochs=10000)
-
-nn.train(inputs, outputs)
-
-for color, x in zip(["00","01","10","11"], inputs):
-    pred = nn.predict(x)
-    print(f"{x} → {pred.round(3)}")
+print(y_hat.round(3))
